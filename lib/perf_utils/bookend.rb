@@ -43,14 +43,14 @@ class Bookend
       end
 
     # probably remove number for +obj:%10s
-    message = "%-30s[code:%7s, sql[%4s]:%6s o[%3s]:%5s] obj:%10s mem:%12s [%s: %s]" %
+    message = "%-30sms:%5s sql[%4s]%4s o[%3s]%3s mem:%12s obj:%10s/%8s/%8s" %
       [ name,       colon(elapsed_time - queries_time - other_time),
         queries,    colon(queries_time),
         other_hits, colon(other_time),
-        coma(gc_stat[:total_allocated_objects] - start_stat[:total_allocated_objects]),
         coma(gc_stat[:memsize_of_all] - start_stat[:memsize_of_all]),
-        gc_happened,
-        coma(gc_stat[:live_objects] - start_stat[:live_objects]), 
+        coma(gc_stat[:total_allocated_objects] - start_stat[:total_allocated_objects]),
+        coma(gc_stat[:old_objects] - start_stat[:old_objects]),
+        coma(gc_stat[:total_freed_objects] - start_stat[:total_freed_objects]),
 #        coma(gc_stat[:memory_usage]),
 #        coma(gc_stat[:memory_size])
       ]
@@ -60,7 +60,7 @@ class Bookend
   # timing
   def colon(d) # comes in ms
     return "0" if d.nil? || d == 0
-    coma(d.to_f * 1_000).to_i.to_s + "ms"
+    coma(d.to_f * 1_000).to_i.to_s
   end
 
   def coma(d)
@@ -78,6 +78,8 @@ class Bookend
   {
 #    :time                                    => Time.now.iso8601,
     :total_allocated_objects                 => gc_stat[:total_allocated_objects],
+    :total_freed_objects                     => gc_stat[:total_freed_objects],
+    :old_objects                             => gc_stat[:old_objects],
     :live_objects                            => live_objects,
     :young_objects                           => young_objects,
     :memsize_of_all                          => ObjectSpace.memsize_of_all,
@@ -128,8 +130,8 @@ def thrice(name, count = 1, &block)
 end
 
 
-def bookend(name, &block)
-  Bookend.track(name, &block)
+def bookend(name, execute = true, &block)
+  execute ? Bookend.track(name, &block) : yield
 end
 
 if false
