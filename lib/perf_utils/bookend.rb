@@ -9,12 +9,12 @@ require 'singleton'
 class Bookend
   include Singleton
 
-  def self._log
-    @log_instance ||= VMDBLogger.new(Rails.root.join("log").join("performance.log"))
+  def _log
+    @log_instance
   end
 
-  def _log
-    self.class._log
+  def initialize
+    @log_instance = VMDBLogger.new(Rails.root.join("log").join("performance.log"))
   end
 
   def track(name)
@@ -26,6 +26,7 @@ class Bookend
     tr = QueryCounter.track { ret_value = yield }
     ret_value
   ensure
+    return unless start_time && tr
     gc_stat = gc_stat_hash
     elapsed_time = Time.now - start_time
     queries_time = tr ? tr.queries_timing : 0
@@ -129,9 +130,19 @@ def thrice(name, count = 1, &block)
   end
 end
 
-
-def bookend(name, execute = true, &block)
-  execute ? Bookend.track(name, &block) : yield
+# bookend :method
+# bookend :method, "metric_name"
+# bookend("metric_name") { puts "here" }
+def bookend(method, name = nil, &block)
+  #track_name = (caller_location(0,4).map(&:) + []).join("/")
+  if method.kind_of?(Symbol)
+    define_method("#{method}_with_bookend") do |*args|
+      Bookend.track(name||method) { send("#{method}_without_bookend", *args) }
+    end
+    alias_method_chain method, :bookend
+  else
+    Bookend.track(name||method, &block)
+  end
 end
 
 if false
@@ -141,10 +152,8 @@ require 'miq-process'
 Metric::Capture::perf_capture_timer
 
 Bookend.track("perf_capture_health_check") { Metric::Capture.perf_capture_health_check }
-
-  QueryCounter.track { Metric::Capture.perf_capture_health_check }
-
-  bookend("perf_capture_health_check") do
-   Metric::Capture.perf_capture_health_check
-  end
+QueryCounter.track { Metric::Capture.perf_capture_health_check }
+bookend("perf_capture_health_check") do
+  Metric::Capture.perf_capture_health_check
+end
 end
