@@ -146,7 +146,16 @@ def bookend(method, name = nil, &block)
 end
 
 if false
-require "#{ENV["HOME"]}/src/perf-utils/bookend"
+
+module Metric::Capture
+  class << self
+    bookend(:perf_capture_health_check)
+    bookend(:perf_capture_timer)
+    bookend(:calc_targets_by_rollup_parent)
+    bookend(:calc_tasks_by_rollup_parent)
+    bookend(:queue_captures)
+  end
+end
 
 require 'miq-process'
 Metric::Capture::perf_capture_timer
