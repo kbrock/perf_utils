@@ -23,17 +23,19 @@ class QueryCounter
     ## @other_statements = Set.new
   end
 
+  OTHER_SQL = ["ROLLBACK", "BEGIN", "COMMIT"].freeze
+
   attr_accessor :queries, :queries_timing
   attr_accessor :other_hits, :other_timing
   attr_accessor :names
   def callback(_name, start, finish, _id, payload)
     #byebug unless payload[:name] == "SCHEMA" || $done
-    case payload[:name]
-    when "SCHEMA", "CACHE", nil # ROLLBACK, BEGIN, END
+    if payload[:name] == "SCHEMA" || (payload[:name].nil? && OTHER_SQL.include?(payload[:sql]))
+      #puts "other: #{payload[:sql]}"
       @other_hits += 1
       @other_timing += (finish - start)
       ## @other_statements << (payload[:name] || payload[:sql])
-      args = (payload[:binds] || []).map { |a| a[1] }
+      # args = (payload[:binds] || []).map { |a| a[1] }
       # puts "#{payload[:name]}: #{payload[:sql]}, #{args.inspect}"
     else
       @queries += 1
