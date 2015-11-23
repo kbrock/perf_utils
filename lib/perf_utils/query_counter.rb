@@ -23,6 +23,7 @@ class QueryCounter
     ## @other_statements = Set.new
   end
 
+  IGNORED_STATEMENTS = %w(CACHE SCHEMA).freeze
   OTHER_SQL = ["ROLLBACK", "BEGIN", "COMMIT"].freeze
 
   attr_accessor :queries, :queries_timing
@@ -30,7 +31,8 @@ class QueryCounter
   attr_accessor :names
   def callback(_name, start, finish, _id, payload)
     #byebug unless payload[:name] == "SCHEMA" || $done
-    if payload[:name] == "SCHEMA" || (payload[:name].nil? && OTHER_SQL.include?(payload[:sql]))
+    if IGNORED_STATEMENTS.include?(payload[:name]) ||
+         (payload[:name].nil? && OTHER_SQL.include?(payload[:sql]))
       #puts "other: #{payload[:sql]}"
       @other_hits += 1
       @other_timing += (finish - start)
