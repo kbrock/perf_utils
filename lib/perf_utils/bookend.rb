@@ -77,7 +77,7 @@ class Bookend
       # ObjectSpace.count_objects.values_at(*count_objects_keys) +
       # ObjectSpace.count_objects_size.values_at(*count_objects_size_keys)
   {
-#    :time                                    => Time.now.iso8601,
+    :time                                    => Time.now,
     :total_allocated_objects                 => gc_stat[:total_allocated_objects],
     :total_freed_objects                     => gc_stat[:total_freed_objects],
     :old_objects                             => gc_stat[:old_objects],
@@ -133,7 +133,7 @@ end
 # bookend :method
 # bookend :method, "metric_name"
 # bookend("metric_name") { puts "here" }
-def bookend(method, name = nil, &block)
+def bookend(method = "noname", name = nil, &block)
   #track_name = (caller_location(0,4).map(&:) + []).join("/")
   if method.kind_of?(Symbol)
     define_method("#{method}_with_bookend") do |*args|
@@ -143,6 +143,35 @@ def bookend(method, name = nil, &block)
   else
     Bookend.track(name||method, &block)
   end
+end
+
+def thrice(name, count = 1, &block)
+  bookend("prep #{name}", &block)
+  GC.start
+  if count != 1
+    4.times { |i| bookend("#{count if count != 1} #{name} #{i + 1}") { count.times(&block) } }
+  else
+    4.times { |j| bookend("#{count if count != 1} #{name} #{j + 1}", &block) }
+  end
+end
+
+def thrices(name, count = 1, pre = true, &block)
+  sandbook("prep #{name}", &block) if pre
+  GC.start
+  if count != 1
+    4.times { |i| sandbook("#{count if count != 1} #{name} #{i + 1}") { count.times(&block) } }
+  else
+    4.times { |j| sandbook("#{count if count != 1} #{name} #{j + 1}", &block) }
+  end
+end
+
+def sandbook(method = "noname", &block)
+  Vm.transaction do
+    Bookend.track(method, &block)
+    raise "rolling back transaction"
+  end
+rescue => e
+  puts "bailed with #{e.message}"
 end
 
 if false
