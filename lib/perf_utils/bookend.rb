@@ -19,29 +19,17 @@ class Bookend
 
   def track(name)
     #_log.info("track #{name}")
-    start_time = Time.now
     start_stat = gc_stat_hash
     ret_value = nil
     # time elapsed, memory used, queries performed, objects created
     tr = QueryCounter.track { ret_value = yield }
-    ret_value
-  ensure
-    return unless start_time && tr
+
     gc_stat = gc_stat_hash
-    elapsed_time = Time.now - start_time
+    elapsed_time = gc_stat[:time] - start_stat[:time]
     queries_time = tr ? tr.queries_timing : 0
     queries      = tr ? tr.queries : "ERROR"
     other_time   = tr ? tr.other_timing : 0
     other_hits   = tr ? tr.other_hits : "ERROR"
-
-    gc_happened =
-      if gc_stat[:major_gc_count] != start_stat[:major_gc_count]
-        " GC"
-      elsif gc_stat[:minor_gc_count] != start_stat[:minor_gc_count]
-        "mGC"
-      else
-        "   "
-      end
 
     # probably remove number for +obj:%10s
     message = "%-30sms:%5s sql[%4s]%4s o[%3s]%3s mem:%12s obj:%10s/%8s/%8s" %
@@ -56,6 +44,7 @@ class Bookend
 #        coma(gc_stat[:memory_size])
       ]
     _log.info(message)
+    ret_value
   end
 
   # timing
