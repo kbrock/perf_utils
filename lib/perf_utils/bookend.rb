@@ -25,21 +25,23 @@ class Bookend
     tr = QueryCounter.track { ret_value = yield }
 
     gc_stat = gc_stat_hash
-    elapsed_time = gc_stat[:time] - start_stat[:time]
+    diff_stat = stat_diff(start_stat, gc_stat)
+    elapsed_time = diff_stat[:time]
     queries_time = tr ? tr.queries_timing : 0
     queries      = tr ? tr.queries : "ERROR"
     other_time   = tr ? tr.other_timing : 0
     other_hits   = tr ? tr.other_hits : "ERROR"
+    code_time    = elapsed_time - queries_time - other_time
 
     # probably remove number for +obj:%10s
     message = "%-30sms:%5s sql[%4s]%4s o[%3s]%3s mem:%12s obj:%10s/%8s/%8s" %
-      [ name,       colon(elapsed_time - queries_time - other_time),
+      [ indent(name),       colon(code_time),
         queries,    colon(queries_time),
         other_hits, colon(other_time),
-        coma(gc_stat[:memsize_of_all] - start_stat[:memsize_of_all]),
-        coma(gc_stat[:total_allocated_objects] - start_stat[:total_allocated_objects]),
-        coma(gc_stat[:old_objects] - start_stat[:old_objects]),
-        coma(gc_stat[:total_freed_objects] - start_stat[:total_freed_objects]),
+        coma(diff_stat[:memsize_of_all]),
+        coma(diff_stat[:total_allocated_objects]),
+        coma(diff_stat[:old_objects]),
+        coma(diff_stat[:total_freed_objects]),
 #        coma(gc_stat[:memory_usage]),
 #        coma(gc_stat[:memory_size])
       ]
@@ -104,6 +106,11 @@ class Bookend
   }
   end
 
+  def stat_diff(first, last)
+    last.each_with_object({}) do |(n, v), h|
+      h[n] = v - first[n]
+    end
+  end
   def self.track(name, &block)
     instance.track(name, &block)
   end
@@ -113,24 +120,24 @@ def thrice(name, count = 1, &block)
   bookend("prep #{name}", &block)
   GC.start
   if count != 1
-    4.times { |i| bookend("#{count if count != 1} #{name} #{i + 1}") { count.times(&block) } }
+    4.times { |i| bookend("#{count} #{name}#{i + 1}") { count.times(&block) } }
   else
-    4.times { |j| bookend("#{count if count != 1} #{name} #{j + 1}", &block) }
+    4.times { |j| bookend("#{name}#{j + 1}", &block) }
   end
 end
 
 # bookend :method
 # bookend :method, "metric_name"
 # bookend("metric_name") { puts "here" }
-def bookend(method = "noname", name = nil, &block)
+def bookend(method = "noname", &block)
   #track_name = (caller_location(0,4).map(&:) + []).join("/")
   if method.kind_of?(Symbol)
     define_method("#{method}_with_bookend") do |*args|
-      Bookend.track(name||method) { send("#{method}_without_bookend", *args) }
+      Bookend.track(method) { send("#{method}_without_bookend", *args) }
     end
     alias_method_chain method, :bookend
   else
-    Bookend.track(name||method, &block)
+    Bookend.track(method, &block)
   end
 end
 
