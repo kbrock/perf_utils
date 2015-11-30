@@ -133,6 +133,7 @@ class Bookend
 
   def track(name)
     @frame = StackFrame.new(name, @frame, true)
+    Rails.logger.info("bookend: begin #{@frame.full_name}")
     #_log.info("track #{name}")
     ret_value = nil
     # time elapsed, memory used, queries performed, objects created
@@ -160,6 +161,7 @@ class Bookend
 #        coma(frame.rss)
       ]
     _log.info(message)
+    Rails.logger.info("bookend: end   #{@frame.full_name} time: #{colon(frame.elapsed_time)}, #{frame.queries}+#{frame.other_hits} ==> mem: #{coma(frame.memsize_of_all)}, obj: #{coma(frame.total_allocated_objects)}")
     ret_value
   ensure
     @frame = @frame.try(:parent)
