@@ -129,15 +129,15 @@ end
 # bookend :method
 # bookend :method, "metric_name"
 # bookend("metric_name") { puts "here" }
-def bookend(method = "noname", &block)
+def bookend(method = "noname", name = nil, &block)
   #track_name = (caller_location(0,4).map(&:) + []).join("/")
   if method.kind_of?(Symbol)
     define_method("#{method}_with_bookend") do |*args|
-      Bookend.track(method) { send("#{method}_without_bookend", *args) }
+      Bookend.track(name||method) { send("#{method}_without_bookend", *args) }
     end
     alias_method_chain method, :bookend
   else
-    Bookend.track(method, &block)
+    Bookend.track(name||method, &block)
   end
 end
 
