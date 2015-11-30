@@ -17,6 +17,10 @@ class Bookend
     @log_instance = VMDBLogger.new(Rails.root.join("log").join("performance.log"))
   end
 
+  def mark(message)
+    _log.info(message)
+  end
+
   def track(name)
     #_log.info("track #{name}")
     start_stat = gc_stat_hash
@@ -111,9 +115,25 @@ class Bookend
       h[n] = v - first[n]
     end
   end
+
+  def self.mark(*args)
+    instance.mark(*args)
+  end
+
   def self.track(name, &block)
     instance.track(name, &block)
   end
+end
+
+def twice(name, count = 1, &block)
+  Bookend.mark(":#{name} prep")
+  Bookend.mark("------")
+  yield
+  GC.start
+  #
+  Bookend.mark(":#{name} second")
+  Bookend.mark("------")
+  yield
 end
 
 def thrice(name, count = 1, &block)
