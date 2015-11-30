@@ -47,7 +47,7 @@ class Bookend
         coma(diff_stat[:old_objects]),
         coma(diff_stat[:total_freed_objects]),
 #        coma(gc_stat[:memory_usage]),
-#        coma(gc_stat[:memory_size])
+#        coma(gc_stat[:rss])
       ]
     _log.info(message)
     ret_value
@@ -80,7 +80,7 @@ class Bookend
     :young_objects                           => young_objects,
     :memsize_of_all                          => ObjectSpace.memsize_of_all,
     :memory_usage                            => mp[:memory_usage], # rss
-    :memory_size                             => mp[:memory_size],  # vsize
+    :rss                                     => mp[:memory_size],  # vsize
 #    :count                                   => gc_stat[:count],
     # :heap_allocated_pages                    => gc_stat[:heap_allocated_pages],
     # :heap_sorted_length                      => gc_stat[:heap_sorted_length],
