@@ -14,6 +14,7 @@ class Bookend
   end
 
   def initialize
+    @namespace = []
     @log_instance = VMDBLogger.new(Rails.root.join("log").join("performance.log"))
   end
 
@@ -22,6 +23,7 @@ class Bookend
   end
 
   def track(name)
+    @namespace << name.to_s
     #_log.info("track #{name}")
     start_stat = gc_stat_hash
     ret_value = nil
@@ -51,6 +53,12 @@ class Bookend
       ]
     _log.info(message)
     ret_value
+  ensure
+    @namespace.pop
+  end
+
+  def indent(name)
+    @namespace.join("/")
   end
 
   # timing
