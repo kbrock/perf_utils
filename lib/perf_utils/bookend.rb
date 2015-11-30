@@ -7,6 +7,114 @@ require 'singleton'
 #require 'vmdb/logging'
 
 class Bookend
+  class StackFrame
+    attr_accessor :name
+    # @return [Array<String>] parents names of parent stack frames
+    attr_accessor :parent
+    attr_accessor :start_stat
+    attr_accessor :end_stat
+    # in the future, store these values in the hash - have it directly add to this frame
+    attr_accessor :tr
+
+    def initialize(name, parent, collect_stat = false)
+      @name = name
+      @parent = parent # strings for now
+      @start_stat = self.class.gc_stat_hash if collect_stat
+    end
+
+    def full_name
+      @full_name ||= traverse.map(&:name).reverse.join(":")
+    end
+
+    def diff_stat
+      @diff_stat ||= @end_stat.each_with_object({}) do |(n, v), h|
+        h[n] = v - @start_stat[n]
+      end
+    end
+
+    def elapsed_time            ; diff_stat[:time] ; end
+    def memsize_of_all          ; diff_stat[:memsize_of_all] ; end
+    def total_allocated_objects ; diff_stat[:total_allocated_objects] ; end
+    def old_objects             ; diff_stat[:old_objects] ; end
+    def total_freed_objects     ; diff_stat[:total_freed_objects] ; end
+    def memory_usage            ; diff_stat[:memory_usage] ; end
+    def rss                     ; diff_stat[:rss] ; end
+
+    def elapsed_time            ; diff_stat[:time] ; end
+    def queries_time            ; tr ? tr.queries_timing : 0 ; end
+    def queries                 ; tr ? tr.queries : "ERROR" ; end
+    def other_time              ; tr ? tr.other_timing : 0 ; end
+    def other_hits              ; tr ? tr.other_hits : "ERROR" ; end
+    def code_time               ; elapsed_time - queries_time - other_time ; end
+
+  # -- execution
+
+    def track(*args)
+      @start_stat = self.class.gc_stat_hash
+      ret = yield(*args)
+      @end_stat = self.class.gc_stat_hash
+    end
+
+      # ruby_gc_logger
+    def self.gc_stat_hash
+      mp = MiqProcess.processInfo
+      gc_stat = GC.stat
+      live_objects  = gc_stat[:total_allocated_objects] - gc_stat[:total_freed_objects] ## need to revisit this one
+      young_objects = live_objects - gc_stat[:old_objects]
+        # ObjectSpace.count_objects.values_at(*count_objects_keys) +
+        # ObjectSpace.count_objects_size.values_at(*count_objects_size_keys)
+    {
+      :time                                    => Time.now,
+      :total_allocated_objects                 => gc_stat[:total_allocated_objects],
+      :total_freed_objects                     => gc_stat[:total_freed_objects],
+      :old_objects                             => gc_stat[:old_objects],
+      :live_objects                            => live_objects,
+      :young_objects                           => young_objects,
+      :memsize_of_all                          => ObjectSpace.memsize_of_all,
+      :memory_usage                            => mp[:memory_usage], # rss
+      :rss                                     => mp[:memory_size],  # vsize
+  #    :count                                   => gc_stat[:count],
+      # :heap_allocated_pages                    => gc_stat[:heap_allocated_pages],
+      # :heap_sorted_length                      => gc_stat[:heap_sorted_length],
+      # :heap_allocatable_pages                  => gc_stat[:heap_allocatable_pages],
+      # :heap_available_slots                    => gc_stat[:heap_available_slots],
+      # :heap_live_slots                         => gc_stat[:heap_live_slots],
+      # :heap_free_slots                         => gc_stat[:heap_free_slots],
+      # :heap_final_slots                        => gc_stat[:heap_final_slots],
+      # :heap_marked_slots                       => gc_stat[:heap_marked_slots],
+      # :heap_swept_slots                        => gc_stat[:heap_swept_slots],
+      # :heap_eden_pages                         => gc_stat[:heap_eden_pages],
+      # :heap_tomb_pages                         => gc_stat[:heap_tomb_pages],
+      # :total_allocated_pages                   => gc_stat[:total_allocated_pages],
+      # :total_freed_pages                       => gc_stat[:total_freed_pages],
+      # :total_allocated_objects                 => gc_stat[:total_allocated_objects],
+      # :total_freed_objects                     => gc_stat[:total_freed_objects],
+      # :malloc_increase_bytes                   => gc_stat[:malloc_increase_bytes],
+      # :malloc_increase_bytes_limit             => gc_stat[:malloc_increase_bytes_limit],
+      :minor_gc_count                          => gc_stat[:minor_gc_count],
+      :major_gc_count                          => gc_stat[:major_gc_count],
+      # :remembered_wb_unprotected_objects       => gc_stat[:remembered_wb_unprotected_objects],
+      # :remembered_wb_unprotected_objects_limit => gc_stat[:remembered_wb_unprotected_objects_limit],
+      # :old_objects                             => gc_stat[:old_objects],
+      # :old_objects_limit                       => gc_stat[:old_objects_limit],
+      # :oldmalloc_increase_bytes                => gc_stat[:oldmalloc_increase_bytes],
+      # :oldmalloc_increase_bytes_limit          => gc_stat[:oldmalloc_increase_bytes_limit],
+    }
+    end
+
+    private
+
+    def traverse
+      return enum_for(:traverse) unless block_given?
+      yield self
+      p = parent
+      while(p)
+        yield p
+        p = p.parent
+      end
+    end
+  end
+
   include Singleton
 
   def _log
@@ -14,7 +122,6 @@ class Bookend
   end
 
   def initialize
-    @namespace = []
     @log_instance = VMDBLogger.new(Rails.root.join("log").join("performance.log"))
   end
 
@@ -22,43 +129,40 @@ class Bookend
     _log.info(message)
   end
 
+  attr_accessor :frame
+
   def track(name)
-    @namespace << name.to_s
+    @frame = StackFrame.new(name, @frame, true)
     #_log.info("track #{name}")
-    start_stat = gc_stat_hash
     ret_value = nil
     # time elapsed, memory used, queries performed, objects created
     tr = QueryCounter.track { ret_value = yield }
+    frame.end_stat = StackFrame.gc_stat_hash # TODO: will be part of frame.track
 
-    gc_stat = gc_stat_hash
-    diff_stat = stat_diff(start_stat, gc_stat)
+    diff_stat    = frame.diff_stat
     elapsed_time = diff_stat[:time]
     queries_time = tr ? tr.queries_timing : 0
     queries      = tr ? tr.queries : "ERROR"
     other_time   = tr ? tr.other_timing : 0
     other_hits   = tr ? tr.other_hits : "ERROR"
-    code_time    = elapsed_time - queries_time - other_time
+    code_time    = frame.code_time
 
     # probably remove number for +obj:%10s
-    message = "%-30sms:%5s sql[%4s]%4s o[%3s]%3s mem:%12s obj:%10s/%8s/%8s" %
-      [ indent(name),       colon(code_time),
-        queries,    colon(queries_time),
-        other_hits, colon(other_time),
-        coma(diff_stat[:memsize_of_all]),
-        coma(diff_stat[:total_allocated_objects]),
-        coma(diff_stat[:old_objects]),
-        coma(diff_stat[:total_freed_objects]),
-#        coma(gc_stat[:memory_usage]),
-#        coma(gc_stat[:rss])
+    message = "%-34s%5sms %4sq@%4sms %2so@%3s %12sb %10sobj/%7s/%8s" %
+      [ frame.full_name,       colon(frame.code_time),
+        queries,    colon(frame.queries_time),
+        other_hits, colon(frame.other_time),
+        coma(frame.memsize_of_all),
+        coma(frame.total_allocated_objects),
+        coma(frame.old_objects),
+        coma(frame.total_freed_objects),
+#        coma(frame.memory_usage),
+#        coma(frame.rss)
       ]
     _log.info(message)
     ret_value
   ensure
-    @namespace.pop
-  end
-
-  def indent(name)
-    @namespace.join("/")
+    @frame = @frame.try(:parent)
   end
 
   # timing
@@ -69,59 +173,6 @@ class Bookend
 
   def coma(d)
     d.to_s.gsub(/(\d)(?=(\d\d\d)+(?!\d))/, "\\1_")
-  end
-
-  # ruby_gc_logger
-  def gc_stat_hash
-    mp = MiqProcess.processInfo
-    gc_stat = GC.stat
-    live_objects  = gc_stat[:total_allocated_objects] - gc_stat[:total_freed_objects] ## need to revisit this one
-    young_objects = live_objects - gc_stat[:old_objects]
-      # ObjectSpace.count_objects.values_at(*count_objects_keys) +
-      # ObjectSpace.count_objects_size.values_at(*count_objects_size_keys)
-  {
-    :time                                    => Time.now,
-    :total_allocated_objects                 => gc_stat[:total_allocated_objects],
-    :total_freed_objects                     => gc_stat[:total_freed_objects],
-    :old_objects                             => gc_stat[:old_objects],
-    :live_objects                            => live_objects,
-    :young_objects                           => young_objects,
-    :memsize_of_all                          => ObjectSpace.memsize_of_all,
-    :memory_usage                            => mp[:memory_usage], # rss
-    :rss                                     => mp[:memory_size],  # vsize
-#    :count                                   => gc_stat[:count],
-    # :heap_allocated_pages                    => gc_stat[:heap_allocated_pages],
-    # :heap_sorted_length                      => gc_stat[:heap_sorted_length],
-    # :heap_allocatable_pages                  => gc_stat[:heap_allocatable_pages],
-    # :heap_available_slots                    => gc_stat[:heap_available_slots],
-    # :heap_live_slots                         => gc_stat[:heap_live_slots],
-    # :heap_free_slots                         => gc_stat[:heap_free_slots],
-    # :heap_final_slots                        => gc_stat[:heap_final_slots],
-    # :heap_marked_slots                       => gc_stat[:heap_marked_slots],
-    # :heap_swept_slots                        => gc_stat[:heap_swept_slots],
-    # :heap_eden_pages                         => gc_stat[:heap_eden_pages],
-    # :heap_tomb_pages                         => gc_stat[:heap_tomb_pages],
-    # :total_allocated_pages                   => gc_stat[:total_allocated_pages],
-    # :total_freed_pages                       => gc_stat[:total_freed_pages],
-    # :total_allocated_objects                 => gc_stat[:total_allocated_objects],
-    # :total_freed_objects                     => gc_stat[:total_freed_objects],
-    # :malloc_increase_bytes                   => gc_stat[:malloc_increase_bytes],
-    # :malloc_increase_bytes_limit             => gc_stat[:malloc_increase_bytes_limit],
-    :minor_gc_count                          => gc_stat[:minor_gc_count],
-    :major_gc_count                          => gc_stat[:major_gc_count],
-    # :remembered_wb_unprotected_objects       => gc_stat[:remembered_wb_unprotected_objects],
-    # :remembered_wb_unprotected_objects_limit => gc_stat[:remembered_wb_unprotected_objects_limit],
-    # :old_objects                             => gc_stat[:old_objects],
-    # :old_objects_limit                       => gc_stat[:old_objects_limit],
-    # :oldmalloc_increase_bytes                => gc_stat[:oldmalloc_increase_bytes],
-    # :oldmalloc_increase_bytes_limit          => gc_stat[:oldmalloc_increase_bytes_limit],
-  }
-  end
-
-  def stat_diff(first, last)
-    last.each_with_object({}) do |(n, v), h|
-      h[n] = v - first[n]
-    end
   end
 
   def self.mark(*args)
