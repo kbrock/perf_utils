@@ -134,25 +134,15 @@ class Bookend
   def track(name)
     @frame = StackFrame.new(name, @frame, true)
     Rails.logger.info("bookend: begin #{@frame.full_name}")
-    #_log.info("track #{name}")
     ret_value = nil
-    # time elapsed, memory used, queries performed, objects created
-    tr = QueryCounter.track { ret_value = yield }
+    frame.tr = QueryCounter2.track { ret_value = yield }
     frame.end_stat = StackFrame.gc_stat_hash # TODO: will be part of frame.track
 
-    diff_stat    = frame.diff_stat
-    elapsed_time = diff_stat[:time]
-    queries_time = tr ? tr.queries_timing : 0
-    queries      = tr ? tr.queries : "ERROR"
-    other_time   = tr ? tr.other_timing : 0
-    other_hits   = tr ? tr.other_hits : "ERROR"
-    code_time    = frame.code_time
 
-    # probably remove number for +obj:%10s
-    message = "%-34s%5sms %4sq@%4sms %2so@%3s %12sb %10sobj/%7s/%8s" %
+    message = "%-34s%5sms %6sq[%8sms] %12sb %10sobj/%7s/%8s" %
       [ frame.full_name,       colon(frame.code_time),
-        queries,    colon(frame.queries_time),
-        other_hits, colon(frame.other_time),
+        "#{frame.queries}+#{frame.other_hits}",
+        "#{colon(frame.queries_time)}+#{colon(frame.other_time)}",
         coma(frame.memsize_of_all),
         coma(frame.total_allocated_objects),
         coma(frame.old_objects),
@@ -161,7 +151,9 @@ class Bookend
 #        coma(frame.rss)
       ]
     _log.info(message)
-    Rails.logger.info("bookend: end   #{@frame.full_name} time: #{colon(frame.elapsed_time)}, #{frame.queries}+#{frame.other_hits} ==> mem: #{coma(frame.memsize_of_all)}, obj: #{coma(frame.total_allocated_objects)}")
+    Rails.logger.info("bookend: end   #{@frame.full_name} time: #{colon(frame.elapsed_time)}, " \
+        "#{frame.queries}+#{frame.other_hits} ==> mem: #{coma(frame.memsize_of_all)} " \
+        "obj: #{coma(frame.total_allocated_objects)}/#{coma(frame.old_objects)}/#{coma(frame.total_freed_objects)}")
     ret_value
   ensure
     @frame = @frame.try(:parent)
@@ -267,7 +259,7 @@ require 'miq-process'
 Metric::Capture::perf_capture_timer
 
 Bookend.track("perf_capture_health_check") { Metric::Capture.perf_capture_health_check }
-QueryCounter.track { Metric::Capture.perf_capture_health_check }
+QueryCounter2.track { Metric::Capture.perf_capture_health_check }
 bookend("perf_capture_health_check") do
   Metric::Capture.perf_capture_health_check
 end

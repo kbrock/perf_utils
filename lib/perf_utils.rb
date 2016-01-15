@@ -5,5 +5,5 @@ module PerfUtils
 end
 
 require 'perf_utils/miq-process'
-require 'perf_utils/query_counter'
+require 'perf_utils/query_counter2'
 require 'perf_utils/bookend'
