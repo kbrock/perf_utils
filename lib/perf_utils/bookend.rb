@@ -1,12 +1,23 @@
 require 'benchmark'
 require 'objspace'
 require 'singleton'
+require 'logger'
 
 # external
 #require 'miq-process'
 #require 'vmdb/logging'
 
 class Bookend
+  class SimpleFormatter < Logger::Formatter
+    def format_datetime(time)
+      time.strftime("%H:%M:%S.%6N")
+    end
+
+    def call(severity, time, progname, msg)
+      # #{format_datetime(time)}
+      "#{msg2str(msg)}\n"
+    end
+  end
   class StackFrame
     attr_accessor :name
     # @return [Array<String>] parents names of parent stack frames
@@ -37,7 +48,7 @@ class Bookend
     def total_allocated_objects ; diff_stat[:total_allocated_objects] ; end
     def old_objects             ; diff_stat[:old_objects] ; end
     def total_freed_objects     ; diff_stat[:total_freed_objects] ; end
-    def memory_usage            ; diff_stat[:memory_usage] ; end
+    #def memory_usage            ; diff_stat[:memory_usage] ; end
     def rss                     ; diff_stat[:rss] ; end
 
     def elapsed_time            ; diff_stat[:time] ; end
@@ -51,54 +62,23 @@ class Bookend
 
     def track(*args)
       @start_stat = self.class.gc_stat_hash
-      ret = yield(*args)
+      yield(*args)
+    ensure
       @end_stat = self.class.gc_stat_hash
     end
 
       # ruby_gc_logger
     def self.gc_stat_hash
-      mp = MiqProcess.processInfo
-      gc_stat = GC.stat
-      live_objects  = gc_stat[:total_allocated_objects] - gc_stat[:total_freed_objects] ## need to revisit this one
-      young_objects = live_objects - gc_stat[:old_objects]
-        # ObjectSpace.count_objects.values_at(*count_objects_keys) +
-        # ObjectSpace.count_objects_size.values_at(*count_objects_size_keys)
+    gc_stat = GC.stat
+    live_objects  = gc_stat[:total_allocated_objects] - gc_stat[:total_freed_objects] ## need to revisit this one
+    young_objects = live_objects - gc_stat[:old_objects]
     {
       :time                                    => Time.now,
       :total_allocated_objects                 => gc_stat[:total_allocated_objects],
       :total_freed_objects                     => gc_stat[:total_freed_objects],
       :old_objects                             => gc_stat[:old_objects],
-      :live_objects                            => live_objects,
       :young_objects                           => young_objects,
       :memsize_of_all                          => ObjectSpace.memsize_of_all,
-      :memory_usage                            => mp[:memory_usage], # rss
-      :rss                                     => mp[:memory_size],  # vsize
-  #    :count                                   => gc_stat[:count],
-      # :heap_allocated_pages                    => gc_stat[:heap_allocated_pages],
-      # :heap_sorted_length                      => gc_stat[:heap_sorted_length],
-      # :heap_allocatable_pages                  => gc_stat[:heap_allocatable_pages],
-      # :heap_available_slots                    => gc_stat[:heap_available_slots],
-      # :heap_live_slots                         => gc_stat[:heap_live_slots],
-      # :heap_free_slots                         => gc_stat[:heap_free_slots],
-      # :heap_final_slots                        => gc_stat[:heap_final_slots],
-      # :heap_marked_slots                       => gc_stat[:heap_marked_slots],
-      # :heap_swept_slots                        => gc_stat[:heap_swept_slots],
-      # :heap_eden_pages                         => gc_stat[:heap_eden_pages],
-      # :heap_tomb_pages                         => gc_stat[:heap_tomb_pages],
-      # :total_allocated_pages                   => gc_stat[:total_allocated_pages],
-      # :total_freed_pages                       => gc_stat[:total_freed_pages],
-      # :total_allocated_objects                 => gc_stat[:total_allocated_objects],
-      # :total_freed_objects                     => gc_stat[:total_freed_objects],
-      # :malloc_increase_bytes                   => gc_stat[:malloc_increase_bytes],
-      # :malloc_increase_bytes_limit             => gc_stat[:malloc_increase_bytes_limit],
-      :minor_gc_count                          => gc_stat[:minor_gc_count],
-      :major_gc_count                          => gc_stat[:major_gc_count],
-      # :remembered_wb_unprotected_objects       => gc_stat[:remembered_wb_unprotected_objects],
-      # :remembered_wb_unprotected_objects_limit => gc_stat[:remembered_wb_unprotected_objects_limit],
-      # :old_objects                             => gc_stat[:old_objects],
-      # :old_objects_limit                       => gc_stat[:old_objects_limit],
-      # :oldmalloc_increase_bytes                => gc_stat[:oldmalloc_increase_bytes],
-      # :oldmalloc_increase_bytes_limit          => gc_stat[:oldmalloc_increase_bytes_limit],
     }
     end
 
@@ -122,7 +102,9 @@ class Bookend
   end
 
   def initialize
-    @log_instance = VMDBLogger.new(Rails.root.join("log").join("performance.log"))
+    @log_instance = Logger.new(Rails.root.join("log").join("performance.log"))
+    @log_instance.level = Logger::DEBUG
+    @log_instance.formatter = ::Bookend::SimpleFormatter.new
   end
 
   def mark(message)
@@ -137,7 +119,6 @@ class Bookend
     ret_value = nil
     frame.tr = QueryCounter2.track { ret_value = yield }
     frame.end_stat = StackFrame.gc_stat_hash # TODO: will be part of frame.track
-
 
     message = "%-34s%5sms %6sq[%8sms] %12sb %10sobj/%7s/%8s" %
       [ frame.full_name,       colon(frame.code_time),
@@ -179,18 +160,17 @@ class Bookend
 end
 
 def twice(name, count = 1, &block)
-  Bookend.mark(":#{name} prep")
+  Bookend.mark(":#{name}-0")
   Bookend.mark("------")
   yield
   GC.start
-  #
-  Bookend.mark(":#{name} second")
+  Bookend.mark(":#{name} 1")
   Bookend.mark("------")
   yield
 end
 
 def thrice(name, count = 1, &block)
-  bookend("prep #{name}", &block)
+  bookend("#{"X " if count != 1}#{name}-0", &block)
   GC.start
   if count != 1
     4.times { |i| bookend("#{count} #{name}#{i + 1}") { count.times(&block) } }
@@ -204,8 +184,9 @@ end
 # bookend("metric_name") { puts "here" }
 def bookend(method = "noname", name = nil, &block)
   #track_name = (caller_location(0,4).map(&:) + []).join("/")
+  helper_method = "#{method}_with_bookend"
   if method.kind_of?(Symbol)
-    define_method("#{method}_with_bookend") do |*args|
+    define_method(helper_method) do |*args|
       Bookend.track(name||method) { send("#{method}_without_bookend", *args) }
     end
     alias_method_chain method, :bookend
@@ -215,7 +196,7 @@ def bookend(method = "noname", name = nil, &block)
 end
 
 def thrice(name, count = 1, &block)
-  bookend("prep #{name}", &block)
+  bookend("#{name}-0", &block)
   GC.start
   if count != 1
     4.times { |i| bookend("#{count if count != 1} #{name} #{i + 1}") { count.times(&block) } }
@@ -225,12 +206,26 @@ def thrice(name, count = 1, &block)
 end
 
 def thrices(name, count = 1, pre = true, &block)
-  sandbook("prep #{name}", &block) if pre
+  sandbook("#{name}-0", &block) if pre
   GC.start
   if count != 1
     4.times { |i| sandbook("#{count if count != 1} #{name} #{i + 1}") { count.times(&block) } }
   else
     4.times { |j| sandbook("#{count if count != 1} #{name} #{j + 1}", &block) }
+  end
+end
+
+def sandy(method = "", count = 4)
+  count.times do |i|
+    begin
+      Bookend.mark("#{method} #{i}#{i ==0 ? "-pre" : ""}")
+      Vm.transaction do
+        yield
+        raise "rolling back transaction"
+      end
+    rescue => e
+      puts "bailed with #{e.message}"
+    end
   end
 end
 
