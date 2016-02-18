@@ -2,6 +2,7 @@ require 'benchmark'
 require 'objspace'
 require 'singleton'
 require 'logger'
+require 'json'
 
 # external
 #require 'miq-process'
@@ -128,8 +129,6 @@ class Bookend
         coma(frame.total_allocated_objects),
         coma(frame.old_objects),
         coma(frame.total_freed_objects),
-#        coma(frame.memory_usage),
-#        coma(frame.rss)
       ]
     _log.info(message)
     Rails.logger.info("bookend: end   #{@frame.full_name} time: #{colon(frame.elapsed_time)}, " \
@@ -236,6 +235,33 @@ def sandbook(method = "noname", &block)
   end
 rescue => e
   puts "bailed with #{e.message}"
+end
+
+def twosands(name = "no name", count = 2, open_all = nil?, &block)
+  puts "beer ./gen_perf.rb " + count.times.collect { |i| sand2("#{name}-#{i+1}", :normal, open_all.nil? ? i > 0 : open_all, &block) }.inspect
+end
+
+def sand2(name = "no name", mode = :normal, open_url = true, &block)
+  options = {
+    :open => open_url, :json => true, :html => true,
+    :base_url => 'http://localhost:3000',
+    :base_file => Rails.root.join("public")
+  }
+  Rack::MiniProfiler.new(block, {}).run_to_file(name, options, &block)
+end
+
+def sandprof(name = "no name", &block)
+  data = ::RubyProf::Profile.profile do
+    yield
+  end
+   # ::RubyProf::FlatPrinter => 'flat.txt',
+   # ::RubyProf::GraphPrinter => 'graph.txt',
+   # ::RubyProf::GraphHtmlPrinter => 'graph.html',
+  printer = ::RubyProf::CallStackPrinter.new(data)
+  file_name = Rails.join("tmp/profile/#{name}-#{Time.now.strftime("%H:%M:%S")}-call_stack.html")
+  ::File.open(file_name, 'wb') do |file|
+    printer.print(file, {})
+  end
 end
 
 if false
