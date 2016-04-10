@@ -237,13 +237,21 @@ rescue => e
   puts "bailed with #{e.message}"
 end
 
-def twosands(name = "no name", count = 2, open_all = nil?, &block)
-  puts "beer ./gen_perf.rb " + count.times.collect { |i| sand2("#{name}-#{i+1}", :normal, open_all.nil? ? i > 0 : open_all, &block) }.inspect
+def twosands(name = "no name", count = 2, open_all = nil, &block)
+  gen = false
+  if open_all.to_s =~ /gen/
+    open_all = false
+    gen = true
+  end
+  x = count.times.collect { |i| sand2("#{name}-#{i+1}", :normal, open_all.nil? ? i > 0 : open_all, &block) }.inspect
+  puts "beer ./gen_perf.rb #{x}"
+  puts `./gen_perf.rb #{x}` if gen
+  x
 end
 
 def sand2(name = "no name", mode = :normal, open_url = true, &block)
   options = {
-    :open => open_url, :json => true, :html => true,
+    :open => open_url == true, :json => true, :html => true,
     :base_url => 'http://localhost:3000',
     :base_file => Rails.root.join("public")
   }
