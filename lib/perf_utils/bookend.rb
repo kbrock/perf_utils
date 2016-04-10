@@ -244,8 +244,8 @@ def twosands(name = "no name", count = 2, open_all = nil, &block)
     gen = true
   end
   x = count.times.collect { |i| sand2("#{name}-#{i+1}", :normal, open_all.nil? ? i > 0 : open_all, &block) }.inspect
-  puts "beer ./gen_perf.rb #{x}"
-  puts `./gen_perf.rb #{x}` if gen
+  puts "beer gen_perf #{x}"
+  puts `gen_perf #{x}` if gen
   x
 end
 
