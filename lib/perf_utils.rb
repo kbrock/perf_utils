@@ -4,6 +4,6 @@ module PerfUtils
   # Your code goes here...
 end
 
-require 'perf_utils/miq-process'
+#require 'perf_utils/miq-process'
 require 'perf_utils/query_counter2'
 require 'perf_utils/bookend'
