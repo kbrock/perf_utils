@@ -48,14 +48,19 @@ module PerfUtils
     def print_page(page)
       query_count, row_count = child_sql_counts(page.root)
       print_line(0, 0.0, page.duration_ms, nil, query_count, page.duration_ms_in_sql, row_count, page[:name])
-      collapse.each do |c|
-        if (root = page.root[:children].first)
-          root[:children].each do |child|
-            merge_children(child) if child.name =~ /#{c}/
-          end
+      collapse_nodes(page.root[:children], collapse) unless collapse.empty?
+      print_node(page.root) if display_children
+    end
+
+    def collapse_nodes(children, collapse)
+      return unless children
+      children.each do |child|
+        if collapse.detect { |c| child.name =~ /#{c}/ }
+          merge_children(child)
+        else
+          collapse_nodes(child[:children], collapse)
         end
       end
-      print_node(page.root) if display_children
     end
 
     # @param page_groups [Array<Page>,Array<Array<Page>>]
