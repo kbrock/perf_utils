@@ -61,7 +61,8 @@ module PerfUtils
     # @param page_groups [Array<Page>,Array<Array<Page>>]
     def print_group(page_groups)
       pages = page_groups.flatten
-      page_groups = [page_groups] if page_groups.first != Array
+      page_groups = [page_groups] unless page_groups.first.kind_of?(Array)
+
       handle_width(pages.map(&:duration_ms))
       handle_width(pages.map(&:duration_ms_in_sql))
 

@@ -105,25 +105,8 @@ class GenPerf
   # print these out
   def run(ids = cli_ids)
     pages = Array.wrap(ids).map { |id| load(id) || raise("page #{id} not found") }
-    printer.handle_width(pages.map(&:duration_ms))
-    printer.handle_width(pages.map(&:duration_ms_in_sql))
-
-    printer.print_header
-
     page_groups = pages.group_by { |page| page[:name] =~ /^(.*[^0-9])[0-9]+$/ ; $1 }.values
-    page_groups.each do |partitions|
-      if page_groups.size > 1
-        puts "======"
-        puts "#{partitions.first[:name]}"
-        puts "======"
-      end
-      partitions.each { |page| printer.print_page(page) }
-
-      if partitions.size > 2
-        printer.print_dashes
-        printer.print_averages(partitions[1..-1])
-      end
-    end
+    printer.print_group page_groups
   end
 
   def self.run(argv, env = [])
