@@ -106,7 +106,7 @@ module PerfUtils
         print_line(node[:depth], node[:start_milliseconds],
                    node[:duration_milliseconds], node[:duration_without_children_milliseconds],
                    query_count, node[:sql_timings_duration_milliseconds], query_rows,
-                   node[:name].try(:strip))
+                   node[:name].try(:strip)) unless node[:name] =~ %r{http://:}
 
         print_sqls(node[:sql_timings], node) if display_sql
       end
