@@ -70,7 +70,7 @@ class GenPerf
         o.opt(:display_sql,      "-s", "--sql",        "Display SQL")
         o.opt(:dedup,            "-d", "--dedup",      "Dedup SQL")
         o.opt(:aggressive_dedup,       "--aggro", "--aggressive", "Aggressive Dedup SQL")
-        o.opt(:shorten,                "--short",      "Shorten SQL")
+        o.opt(:shorten,                "--short", "--summary",    "Shorten SQL")
         o.opt(:display_children, "-c", "--children",   "Display children")
         o.opt(:display_trivial,  "-t", "--trivial",    "Display trivial") # ==> default to show?
         o.opt(:collapse,               "--collapse STING", "Collapse string")
