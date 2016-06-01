@@ -121,6 +121,7 @@ module PerfUtils
     def print_sqls(snodes, node)
       snodes.each do |snode|
         snode[:summary] = summarize_sql_cmd(snode[:formatted_command_string], snode[:parameters], !aggressive_dedup)
+        snode[:formatted_command_string] += " " + fix_params(snode[:parameters]).map(&:second).inspect if snode[:parameters]
       end
 
       snodes = dedup_sql(snodes, aggressive_dedup) if dedup || aggressive_dedup
