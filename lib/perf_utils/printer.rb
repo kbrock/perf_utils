@@ -135,12 +135,14 @@ module PerfUtils
     def print_sql(snode, depth)
       start_ms = snode[:start_milliseconds]
       duration = snode[:duration_milliseconds] #.round(1) amount of time to fetch all nodes?
-      #duration_f = snode[:first_fetch_duration_milliseconds].round(1) # amount of time to fetch first node
+      #duration_f = snode[:first_fetch_duration_milliseconds] # amount of time to fetch first node
+      cached = cached_result?(snode)
       row_count = snode[:row_count] # # rows returned
       summary  = shorten ? snode[:summary] : snode[:formatted_command_string] # shortened sql (custom)
       count    = snode[:count] # # times this was run (custom)
 
-      print_line(depth, start_ms, nil, nil, count, duration, row_count, summary)
+      # print_line(depth, start_ms, cached ? nil : duration, nil, count, cached ? duration : duration_f , cached ? "(#{row_count})" : row_count, summary)
+      print_line(depth, start_ms, nil, nil, count, duration, cached ? "(#{row_count})" : row_count, summary)
     end
 
     def print_trace(trace, depth)
@@ -155,11 +157,16 @@ module PerfUtils
     end
 
     def count_sql(node, tgt = [0, 0])
-      if (timings = node[:sql_timings])
+      if (timings = node[:sql_timings].select { |snode| !cached_result?(snode) })
         tgt[0] += timings.size
         tgt[1] += timings.map {|timing| timing[:row_count].to_i }.sum
       end
       tgt
+    end
+
+    def cached_result?(snode)
+      duration_f = snode[:first_fetch_duration_milliseconds] # amount of time to fetch first node
+      duration_f.nil? || duration_f < 0.001
     end
 
     def summarize_sql_cmd(sql, params, include_count = true)
