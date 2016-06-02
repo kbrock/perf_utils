@@ -26,17 +26,6 @@ class Bookend
   end
 
   def initialize
-    @log_instance = Logger.new(Rails.root.join("log").join("performance.log"))
-    @log_instance.level = Logger::DEBUG
-    @log_instance.formatter = ::Bookend::SimpleFormatter.new
-  end
-
-  def mark(message)
-    _log.info(message)
-  end
-
-  def self.mark(*args)
-    instance.mark(*args)
   end
 
   def self.track(name, &block)
@@ -131,7 +120,4 @@ end
 if false
 
 Metric::Capture::perf_capture_timer
-bookend("perf_capture_health_check") do
-  Metric::Capture.perf_capture_health_check
-end
 end
