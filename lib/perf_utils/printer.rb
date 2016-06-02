@@ -121,6 +121,7 @@ module PerfUtils
     def print_sqls(snodes, node)
       snodes.each do |snode|
         snode[:summary] = summarize_sql_cmd(snode[:formatted_command_string], snode[:parameters], !aggressive_dedup)
+        # unsure:
         snode[:formatted_command_string] += " " + fix_params(snode[:parameters]).map(&:second).inspect if snode[:parameters]
       end
 
@@ -190,7 +191,7 @@ module PerfUtils
       if params
         #byebug
         summary += " "
-        summary += fix_params(params).map(&:second).inspect
+        summary += fix_params(params).map(&:second).inspect.to_s[0..20]
       end
       summary += " -- [#{size_sql(sql, params)}]" if include_count
       summary 
