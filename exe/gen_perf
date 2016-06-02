@@ -64,7 +64,9 @@ class GenPerf
         o.opt(:storage_options, "ENV[PROFILER_STORAGE]", "--storage-options STRING",
               "Storage options [e.g.: name=value,name=value]")
       end
-
+      opt(opts, nil, nil) do |o|
+        o.opt(:all, "--all", "displays sql and children") { printer.display_sql = true ; printer.display_children = true}
+      end
       opt(opts, printer, env) do |o|
         o.opt(:display_offset,   "-o", "--offset",     "Display offset (default: false)")
         o.opt(:display_sql,      "-s", "--sql",        "Display SQL")
@@ -83,7 +85,7 @@ class GenPerf
             printer.collapse = "Render"
             printer.shorten = true
             printer.display_children = true
-            printer.dedup = true
+            # printer.dedup = true
             # storage.type = "redis"
             # storage.storage_options="db=2"
             # http://localhost:3000/mini-profiler-resources/results?id=iblgq81g9ubfe6vkowl6
