@@ -31,6 +31,8 @@ class Bookend
   def self.track(name, &block)
     instance.track(name, &block)
   end
+
+  def capture(name, options = {})
     base_url = options[:base_url] || "http://localhost:3000"
     # base_file = options[:base_file] || defined?(Rails) ? Rails.root.join("public") : "."
     env = {'RACK_MINI_PROFILER_ORIGINAL_SCRIPT_NAME' => base_url}
