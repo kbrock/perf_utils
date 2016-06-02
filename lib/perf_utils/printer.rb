@@ -47,7 +47,7 @@ module PerfUtils
 
     def print_page(page)
       query_count, row_count = child_sql_counts(page.root)
-      print_line(0, 0.0, page.duration_ms, page.duration_ms, query_count, page.duration_ms_in_sql, row_count, page[:name])
+      print_line(0, 0.0, page.duration_ms, 0, query_count, page.duration_ms_in_sql, row_count, page[:name])
       collapse_nodes(page.root[:children], collapse) unless collapse.empty?
       print_node(page.root) if display_children
     end
