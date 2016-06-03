@@ -13,6 +13,8 @@ module PerfUtils
     attr_accessor :shorten
     # @return [Boolean] true to skip the first record for averages - often the first record is an outlier
     attr_accessor :skip_first
+
+    # @return [Integer] number of characters wide for the timing fields
     attr_accessor :width
 
     attr_reader   :fmt_h, :fmt_d
@@ -40,7 +42,6 @@ module PerfUtils
 
     def print_header
       print_line(0, "@", "ms", "ms-", "sql", "sqlms", "sqlrows", "comments")
-      print_dashes
     end
 
     def print_dashes
@@ -74,15 +75,24 @@ module PerfUtils
       handle_width(pages.map(&:duration_ms))
       handle_width(pages.map(&:duration_ms_in_sql))
 
-      print_header
+      if page_groups.size == 1
+        print_header
+        print_dashes unless (display_children || display_sql)
+      end
 
       page_groups.each do |partitions|
         if page_groups.size > 1
           puts "======"
           puts "#{partitions.first[:name]}"
           puts "======"
+          puts
+          print_header
+          print_dashes unless (display_children || display_sql)
         end
-        partitions.each { |page| print_page(page) }
+        partitions.each do |page|
+          print_dashes if (display_children || display_sql)
+          print_page(page)
+        end
 
         if partitions.size > 2
           print_dashes
