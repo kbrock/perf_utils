@@ -63,28 +63,22 @@ module PerfUtils
     end
 
     if COLLECT_MEMSIZE
-      FMT = "|%s|%s|%s|%s|%s|%s|".freeze
+      HEADER_TITLES = %w(name memsize all allocated old freed)
     else
-      FMT = "|%s|%s|%s|%s|".freeze
+      HEADER_TITLES = %w(name all allocated old freed)
     end
+    FMT = ("|" + HEADER_TITLES.map { "%s" }.join("|") + "|").freeze
+    HEADER = (FMT % HEADER_TITLES).freeze
+    DASH = (FMT % HEADER_TITLES.map { "---" }).freeze
+
     def fmt
       FMT
     end
 
-    if COLLECT_MEMSIZE
-      HEADER = (FMT % %w(name time all allocated old freed)).freeze
-    else
-      HEADER = (FMT % %w(name allocated old freed)).freeze
-    end
     def header
       HEADER
     end
 
-    if COLLECT_MEMSIZE
-      DASH = (FMT % %w(--- --- --- --- --- ---)).freeze
-    else
-      DASH = (FMT % %w(--- --- --- ---)).freeze
-    end
     def dash
       DASH
     end
@@ -99,7 +93,7 @@ module PerfUtils
       #   coma(total_freed_objects),
       # ]
       if COLLECT_MEMSIZE
-       "|#{name}|#{colon(code_time)}|#{coma(memsize_of_all)}|#{coma(total_allocated_objects)}|#{coma(old_objects)}|#{coma(total_freed_objects)}|"
+        "|#{name}|#{colon(code_time)}|#{coma(memsize_of_all)}|#{coma(total_allocated_objects)}|#{coma(old_objects)}|#{coma(total_freed_objects)}|"
       else
         "|#{name}|#{coma(total_allocated_objects)}|#{coma(old_objects)}|#{coma(total_freed_objects)}|"
       end
@@ -131,14 +125,10 @@ module PerfUtils
 
   def self.track(name, print_me = true)
     d = Stat.new(name).calc
-    #start_stat = Stat.new(name).calc
     yield
     d.delta
-    #end_stat = Stat.new(name).calc
-    #print_me ? self : [start_stat, end_stat, ret]
   ensure
     if print_me
-      # d = (end_stat - start_stat)
       puts ["",d.header, d.dash, d.message, "", ""].join("\n")
     end
   end
