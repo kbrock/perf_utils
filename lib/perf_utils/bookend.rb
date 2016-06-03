@@ -1,10 +1,8 @@
-require 'benchmark'
 require 'objspace'
 require 'singleton'
 require 'json'
 require 'perf_utils/rack_storage'
 require 'perf_utils/printer'
-
 
 class Bookend
   include Singleton
@@ -22,15 +20,16 @@ class Bookend
     env = {'RACK_MINI_PROFILER_ORIGINAL_SCRIPT_NAME' => base_url}
 
     page_struct = storage.current(env).page_struct
-    start = Time.now
     #page_struct[:user] = config.user_provider.call(env) # needed?
     page_struct[:name] = name
+    d = PerfUtils::Stat.new(name).calc
     yield
+    d.delta
+    page_struct[:root].record_time(d.time * 1000)
 
-    page_struct[:root].record_time((Time.now - start) * 1000)
 #    storage.set_unviewed(page_struct[:user], page_struct[:id])
     storage.save(page_struct)
-    page_struct[:id]
+    [page_struct[:id], d]
   ensure
     ::Rack::MiniProfiler.current = nil
   end
@@ -70,23 +69,27 @@ def bookend(name = "no name", count = 1, open_all = nil, &block)
     gen = true
   end
   gp = Bookend.instance
-  x = count.times.collect do |i|
-    #sand2("#{name}-#{i+1}", :normal, open_all.nil? ? i > 0 : open_all, &block)
+  # [[gen_perf_num, stat]]
+  xs = count.times.collect do |i|
     gp.capture("#{name}-#{i+1}", &block)
   end
-  puts "beer gen_perf #{x}"
-  gp.print(x) if gen
-#  puts `gen_perf #{x}` if gen
-  x
-end
+  stats = xs.map(&:last)
+  x = xs.map(&:first)
+  if gen
+    fs = stats.first
+    puts
+    puts fs.header
+    puts fs.dash
+    puts ([fs.header, fs.dash] + stats.collect(&:message)).join("\n")
 
-def sand2(name = "no name", mode = :normal, open_url = true, &block)
-  options = {
-    :open => open_url == true, :json => true, :html => true,
-    :base_url => 'http://localhost:3000',
-    :base_file => Rails.root.join("public")
-  }
-  Rack::MiniProfiler.new(block, {}).run_to_file(name, options, &block)
+    puts
+    gp.print(x)
+    puts
+  else
+    puts
+    puts "beer gen_perf #{x}"
+  end
+  x
 end
 
 def sandprof(name = "no name", &block)
