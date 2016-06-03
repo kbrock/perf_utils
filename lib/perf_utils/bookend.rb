@@ -1,29 +1,13 @@
 require 'benchmark'
 require 'objspace'
 require 'singleton'
-require 'logger'
 require 'json'
 require 'perf_utils/rack_storage'
 require 'perf_utils/printer'
 
 
 class Bookend
-  class SimpleFormatter < Logger::Formatter
-    def format_datetime(time)
-      time.strftime("%H:%M:%S.%6N")
-    end
-
-    def call(severity, time, progname, msg)
-      # #{format_datetime(time)}
-      "#{msg2str(msg)}\n"
-    end
-  end
-
   include Singleton
-
-  def _log
-    @log_instance
-  end
 
   def initialize
   end
