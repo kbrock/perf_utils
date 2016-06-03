@@ -10,6 +10,8 @@ module PerfUtils
     attr_accessor :dedup
     attr_accessor :shorten
     attr_accessor :display_children
+    # @return [Boolean] true to skip the first record for averages - often the first record is an outlier
+    attr_accessor :skip_first
     attr_accessor :width
 
     attr_reader   :fmt_h, :fmt_d
@@ -83,7 +85,7 @@ module PerfUtils
 
         if partitions.size > 2
           print_dashes
-          print_averages(partitions[1..-1])
+          print_averages(skip_first ? partitions[1..-1] : partitions)
         end
       end
     end
