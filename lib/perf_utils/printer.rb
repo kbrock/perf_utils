@@ -4,12 +4,13 @@ module PerfUtils
     attr_accessor :display_sql
     attr_accessor :display_trivial
     attr_accessor :display_trace
+    attr_accessor :display_cache
+    attr_accessor :display_children
     attr_accessor :collapse
 
     attr_accessor :aggressive_dedup
     attr_accessor :dedup
     attr_accessor :shorten
-    attr_accessor :display_children
     # @return [Boolean] true to skip the first record for averages - often the first record is an outlier
     attr_accessor :skip_first
     attr_accessor :width
@@ -121,6 +122,8 @@ module PerfUtils
     end
 
     def print_sqls(snodes, node)
+      # remove cached nodes
+      snodes = snodes.select { |snode| !cached_result?(snode) } unless display_cache
       snodes.each do |snode|
         snode[:summary] = summarize_sql_cmd(snode[:formatted_command_string], snode[:parameters], !aggressive_dedup)
         # unsure:
@@ -160,10 +163,11 @@ module PerfUtils
     end
 
     def count_sql(node, tgt = [0, 0])
-      if (timings = node[:sql_timings].select { |snode| !cached_result?(snode) })
-        tgt[0] += timings.size
-        tgt[1] += timings.map {|timing| timing[:row_count].to_i }.sum
-      end
+      timings = node[:sql_timings] || return
+      # get rid of cached nodes (will get a little false positive as queries w/ 0.000s will be thrown out)
+      timings = timings.select { |snode| !cached_result?(snode) }
+      tgt[0] += timings.size
+      tgt[1] += timings.map {|timing| timing[:row_count].to_i }.sum
       tgt
     end
 
