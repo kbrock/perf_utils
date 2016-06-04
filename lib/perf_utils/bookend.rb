@@ -80,8 +80,7 @@ def bookend(name = "no name", count = 1, open_all = nil, &block)
     puts
     puts fs.header
     puts fs.dash
-    puts ([fs.header, fs.dash] + stats.collect(&:message)).join("\n")
-
+    puts stats.collect(&:message)
     puts
     gp.print(x)
     puts

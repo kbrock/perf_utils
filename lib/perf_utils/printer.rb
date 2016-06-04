@@ -75,20 +75,16 @@ module PerfUtils
       handle_width(pages.map(&:duration_ms))
       handle_width(pages.map(&:duration_ms_in_sql))
 
-      if page_groups.size == 1
-        print_header
-        print_dashes unless (display_children || display_sql)
-      end
-
       page_groups.each do |partitions|
         if page_groups.size > 1
           puts "======"
           puts "#{partitions.first[:name]}"
           puts "======"
           puts
-          print_header
-          print_dashes unless (display_children || display_sql)
         end
+        print_header
+        print_dashes unless (display_children || display_sql)
+
         partitions.each do |page|
           print_dashes if (display_children || display_sql)
           print_page(page)
@@ -151,14 +147,14 @@ module PerfUtils
     def print_sql(snode, depth)
       start_ms = snode[:start_milliseconds]
       duration = snode[:duration_milliseconds] #.round(1) amount of time to fetch all nodes?
-      #duration_f = snode[:first_fetch_duration_milliseconds] # amount of time to fetch first node
+      duration_f = snode[:first_fetch_duration_milliseconds] # amount of time to fetch first node
       cached = cached_result?(snode)
       row_count = snode[:row_count] # # rows returned
       summary  = shorten ? snode[:summary] : snode[:formatted_command_string] # shortened sql (custom)
       count    = snode[:count] # # times this was run (custom)
 
       # print_line(depth, start_ms, cached ? nil : duration, nil, count, cached ? duration : duration_f , cached ? "(#{row_count})" : row_count, summary)
-      print_line(depth, start_ms, nil, nil, count, duration, cached ? "(#{row_count})" : row_count, summary)
+      print_line(depth, start_ms, duration_f ? duration : nil, nil, count, duration_f || duration, cached ? "(#{row_count})" : row_count, summary)
     end
 
     def print_trace(trace, depth)
