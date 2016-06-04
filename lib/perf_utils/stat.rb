@@ -1,3 +1,5 @@
+require 'objspace'
+
 module PerfUtils
   COLLECT_MEMSIZE=false
   class Stat
@@ -25,14 +27,14 @@ module PerfUtils
 
     def live_objects ; total_allocated_objects - total_freed_objects ; end
     def young_objects ; live_objects - old_objects ; end
-
+    def code_time ; time ; end
     def delta
       gc_stat = GC.stat
 #      @time                    = Time.now - @time
       @total_allocated_objects = gc_stat[:total_allocated_objects] - @total_allocated_objects
       @total_freed_objects     = gc_stat[:total_freed_objects]     - @total_freed_objects
       @old_objects             = gc_stat[:old_objects]             - @old_objects
-      @memsize_of_all          = ObjectSpace.memsize_of_all - s.memsize_of_all if COLLECT_MEMSIZE
+      @memsize_of_all          = ObjectSpace.memsize_of_all        - @memsize_of_all if COLLECT_MEMSIZE
 
       self
     end
@@ -63,9 +65,9 @@ module PerfUtils
     end
 
     if COLLECT_MEMSIZE
-      HEADER_TITLES = %w(name memsize all allocated old freed)
+      HEADER_TITLES = %w(name mem allocated old freed)
     else
-      HEADER_TITLES = %w(name all allocated old freed)
+      HEADER_TITLES = %w(name allocated old freed)
     end
     FMT = ("|" + HEADER_TITLES.map { "%s" }.join("|") + "|").freeze
     HEADER = (FMT % HEADER_TITLES).freeze
@@ -93,7 +95,7 @@ module PerfUtils
       #   coma(total_freed_objects),
       # ]
       if COLLECT_MEMSIZE
-        "|#{name}|#{colon(code_time)}|#{coma(memsize_of_all)}|#{coma(total_allocated_objects)}|#{coma(old_objects)}|#{coma(total_freed_objects)}|"
+        "|#{name}|#{coma(memsize_of_all)}|#{coma(total_allocated_objects)}|#{coma(old_objects)}|#{coma(total_freed_objects)}|"
       else
         "|#{name}|#{coma(total_allocated_objects)}|#{coma(old_objects)}|#{coma(total_freed_objects)}|"
       end
