@@ -14,7 +14,7 @@ module PerfUtils
     end
 
     def calc
-#      @time = Time.now
+      @time = Time.now
       gc_stat = GC.stat
       @total_allocated_objects = gc_stat[:total_allocated_objects]
       @total_freed_objects     = gc_stat[:total_freed_objects]
@@ -30,7 +30,7 @@ module PerfUtils
     def code_time ; time ; end
     def delta
       gc_stat = GC.stat
-#      @time                    = Time.now - @time
+      @time                    = Time.now - @time
       @total_allocated_objects = gc_stat[:total_allocated_objects] - @total_allocated_objects
       @total_freed_objects     = gc_stat[:total_freed_objects]     - @total_freed_objects
       @old_objects             = gc_stat[:old_objects]             - @old_objects
