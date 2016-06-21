@@ -6,6 +6,7 @@ module PerfUtils
     attr_accessor :display_trace
     attr_accessor :display_cache
     attr_accessor :display_children
+    attr_accessor :display_stats
     attr_accessor :collapse
 
     attr_accessor :aggressive_dedup
@@ -41,17 +42,20 @@ module PerfUtils
     end
 
     def print_header
-      print_line(0, "@", "ms", "ms-", "sql", "sqlms", "sqlrows", "comments")
+      print_line(0, "@", "ms", "ms-", "queries", "query (ms)", "rows", "comments", "bytes", "objects")
+      # print_line(0, "@", "ms", "ms-", "# queries", "query time(ms)", "# rows", "comments")
     end
 
     def print_dashes
       d = "---"
-      print_line(0, d, d, d, d, d, d, d)
+      print_line(0, d, d, d, d, d, d, d, d, d)
     end
 
-    def print_page(page)
+    def print_page(page, stat)
       query_count, row_count = child_sql_counts(page.root)
-      print_line(0, 0.0, page.duration_ms, 0, query_count, page.duration_ms_in_sql, row_count, page[:name])
+
+      print_line(0, 0.0, page.duration_ms, 0, query_count, page.duration_ms_in_sql, row_count, page[:name],
+        stat && stat.memsize_of_all, stat && stat.total_allocated_objects)
       collapse_nodes(page.root[:children], collapse) unless collapse.empty?
       print_node(page.root) if display_children
     end
@@ -68,12 +72,15 @@ module PerfUtils
     end
 
     # @param page_groups [Array<Page>,Array<Array<Page>>]
-    def print_group(page_groups)
+    def print_group(page_groups, stats = nil)
       pages = page_groups.flatten
       page_groups = [page_groups] unless page_groups.first.kind_of?(Array)
 
       handle_width(pages.map(&:duration_ms))
       handle_width(pages.map(&:duration_ms_in_sql))
+
+      # hack
+      stat = stats && stats.first
 
       page_groups.each do |partitions|
         if page_groups.size > 1
@@ -87,7 +94,7 @@ module PerfUtils
 
         partitions.each do |page|
           print_dashes if (display_children || display_sql)
-          print_page(page)
+          print_page(page, stat)
         end
 
         if partitions.size > 2
@@ -200,8 +207,8 @@ module PerfUtils
       else # "DELETE|BEGIN|COMMIT|ROLLBACK
         summary = sql
       end
-      if params
         #byebug
+      if params && !shorten
         summary += " "
         summary += fix_params(params).map(&:second).inspect.to_s[0..20]
       end
@@ -296,6 +303,7 @@ module PerfUtils
       durations = 1
       durations +=1 if display_children
       durations +=1 if display_offset
+      durations +=2 if display_stats
 
       "| " + (" %*s#{spacer}|" * durations) + # offset, duration, child duration
         "%5s#{spacer}| %*s#{spacer}| %8s#{spacer}|" + #sql count, sql duration, sql row count
@@ -311,10 +319,11 @@ module PerfUtils
       print_line(depth, nil, nil, nil, nil, nil, nil, phrase)
     end
 
-    def print_line(depth, offset = nil,
+    def print_line(depth, offset,
                    duration, child_duration,
                    sql_count, sql_duration, sql_row_count, 
-                   phrase)
+                   phrase,
+                   memsize_of_all = nil, total_allocated_objects = nil)
       offset = f_to_s(offset)
       duration = f_to_s(duration)
       child_duration = f_to_s(child_duration)
@@ -322,10 +331,14 @@ module PerfUtils
       phrase = phrase.gsub("executing ","") if phrase
       sql_count = z_to_s(sql_count, 0)
       sql_row_count = z_to_s(sql_row_count, 0)
+      memsize_of_all = z_to_s(memsize_of_all, 0)
+      total_allocated_objects = z_to_s(total_allocated_objects, 0)
 
       data = []
       data += [width, offset] if display_offset
       data += [width, duration]
+      # data += [1, width, 1, width] if display_stats
+      data += [width, memsize_of_all, width, total_allocated_objects] if display_stats
       data += [width, child_duration] if display_children
       data += [sql_count, width, sql_duration, sql_row_count] + [padded(depth)]
       data += [phrase]

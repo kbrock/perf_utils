@@ -14,6 +14,15 @@ class Bookend
     instance.track(name, &block)
   end
 
+  def self.config(name, options = nil)
+    name, options = :printer, name if options.nil?
+    if options.kind_of?(Hash)
+      instance.config(name, options)
+    else
+      instance.config(name, options)
+    end
+  end
+
   def capture(name, options = {})
     base_url = options[:base_url] || "http://localhost:3000"
     # base_file = options[:base_file] || defined?(Rails) ? Rails.root.join("public") : "."
@@ -34,21 +43,52 @@ class Bookend
     ::Rack::MiniProfiler.current = nil
   end
 
-  def print(pages)
+  def print(pages, stats = nil)
     pages = pages.map { |id| storage.load(id) }
     page_groups = pages.group_by { |page| page[:name] =~ /^(.*[^0-9])[0-9]+$/ ; $1 }.values
-    printer.print_group(page_groups)
+    printer.print_group(page_groups, stats)
   end
+
+  def print_xs(xs)
+    stats = xs.map(&:last)
+    x = xs.map(&:first) #process ids
+    if true
+      # the gc ran - lets run again
+      if stats.first.total_freed_objects != 0
+        puts "OLD: #{stats.first.old_objects} / FREED: #{stats.first.total_freed_objects}"
+      end
+
+      print(x, stats)
+      puts
+    else
+      puts
+      puts "beer gen_perf #{x}"
+    end
+    x
+  end
+
+  # config
 
   def printer
     @printer ||= ::PerfUtils::Printer.new.tap do |printer|
-      printer.display_children = true
+      printer.display_children = false
       printer.display_sql = true
+      printer.shorten = true
+      printer.display_stats = true
     end
   end
 
   def storage
     @storage ||= ::PerfUtils::RackStorage.new
+  end
+
+  def config(obj, params)
+    target = public_send(obj)
+    if params.kind_of?(Hash)
+      params.each { |n, v| target.public_send("#{n}=", v) }
+    else
+      target.public_send(params)
+    end
   end
 end
 
@@ -62,33 +102,37 @@ def thrice(name, count = 1, &block)
   end
 end
 
-def bookend(name = "no name", count = 1, open_all = nil, &block)
-  gen = false
-  if open_all.to_s =~ /gen/
-    open_all = false
-    gen = true
-  end
+def bookend(name = "no name", count = 1, &block)
   gp = Bookend.instance
   # [[gen_perf_num, stat]]
   xs = count.times.collect do |i|
     gp.capture("#{name}-#{i+1}", &block)
   end
-  stats = xs.map(&:last)
-  x = xs.map(&:first)
-  if gen
-    fs = stats.first
-    puts
-    puts fs.header
-    puts fs.dash
-    puts stats.collect(&:message)
-    puts
-    gp.print(x)
-    puts
-  else
-    puts
-    puts "beer gen_perf #{x}"
+  gp.print_xs(xs)
+  xs.map(&:first) #process ids
+end
+
+def sandy(name = "", count = 4, &block)
+  gp = Bookend.instance
+  old_skip = Bookend.config(:skip_first)
+  Bookend.config(:skip_first => true)
+  # [[gen_perf_num, stat]]
+  xs = count.times.collect do |i|
+    x_s = nil
+    begin
+      Vm.transaction do
+        x_s = gp.capture("#{name}-#{i+1}", &block)
+        raise "rolling back transaction"
+      end
+    rescue => e
+      puts "bailed with #{e.message}"
+    end
+    x_s
   end
-  x
+  gp.print_xs(xs)
+  xs.map(&:first) #process ids
+ensure
+  Bookend.config(:skip_first => old_skip)
 end
 
 def sandprof(name = "no name", &block)

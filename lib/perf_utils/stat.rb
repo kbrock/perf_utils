@@ -1,7 +1,7 @@
-require 'objspace'
-
 module PerfUtils
-  COLLECT_MEMSIZE=false
+  # memsize_of_all uses up a bunch of memory and creates a bunch of objects and takes a lot of time
+  COLLECT_MEMSIZE = true
+  require 'objspace' if COLLECT_MEMSIZE
   class Stat
     attr_accessor :name
     attr_accessor :total_allocated_objects, :total_freed_objects, :old_objects #
@@ -19,7 +19,6 @@ module PerfUtils
       @total_allocated_objects = gc_stat[:total_allocated_objects]
       @total_freed_objects     = gc_stat[:total_freed_objects]
       @old_objects             = gc_stat[:old_objects]
-      # # memsize_of_all creates a bunch of objects and takes a lot of time
       @memsize_of_all          = ObjectSpace.memsize_of_all if COLLECT_MEMSIZE
 
       self
@@ -39,35 +38,10 @@ module PerfUtils
       self
     end
 
-    # @param s [Stat] starting time
-    def diff(s)
-#      @time                    -= s.time
-      @total_allocated_objects -= s.total_allocated_objects
-      @total_freed_objects     -= s.total_freed_objects
-      @old_objects             -= s.old_objects
-      @memsize_of_all          -= s.memsize_of_all if COLLECT_MEMSIZE
-
-      self
-    end
-
-    def dup(n = nil)
-      self.class.new(n || name).tap { |s|
-#        s.time                    = time
-        s.total_allocated_objects = total_allocated_objects
-        s.total_freed_objects     = total_freed_objects
-        s.old_objects             = old_objects
-        s.memsize_of_all          = memsize_of_all if COLLECT_MEMSIZE
-      }
-    end
-
-    def -(stat2)
-      dup(name).diff(stat2)
-    end
-
     if COLLECT_MEMSIZE
-      HEADER_TITLES = %w(name mem allocated old freed)
+      HEADER_TITLES = %w(mem allocated old freed).freeze
     else
-      HEADER_TITLES = %w(name allocated old freed)
+      HEADER_TITLES = %w(allocated old freed).freeze
     end
     FMT = ("|" + HEADER_TITLES.map { "%s" }.join("|") + "|").freeze
     HEADER = (FMT % HEADER_TITLES).freeze
@@ -95,9 +69,9 @@ module PerfUtils
       #   coma(total_freed_objects),
       # ]
       if COLLECT_MEMSIZE
-        "|#{name}|#{coma(memsize_of_all)}|#{coma(total_allocated_objects)}|#{coma(old_objects)}|#{coma(total_freed_objects)}|"
+        "|#{coma(memsize_of_all)}|#{coma(total_allocated_objects)}|#{coma(old_objects)}|#{coma(total_freed_objects)}|"
       else
-        "|#{name}|#{coma(total_allocated_objects)}|#{coma(old_objects)}|#{coma(total_freed_objects)}|"
+        "|#{coma(total_allocated_objects)}|#{coma(old_objects)}|#{coma(total_freed_objects)}|"
       end
     end
 
@@ -109,7 +83,7 @@ module PerfUtils
     end
 
     DELIMITER = /(\d)(?=(\d\d\d)+(?!\d))/.freeze
-    REPLACEMENT = "\\1_".freeze
+    REPLACEMENT = "\\1,".freeze
     def coma(d)
       # d && d.to_s.gsub(DELIMITER, REPLACEMENT)
       d && d.to_s.gsub(DELIMITER) { |x| "#{x}_" }
