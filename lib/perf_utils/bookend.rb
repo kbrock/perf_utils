@@ -23,6 +23,24 @@ class Bookend
     end
   end
 
+  # profile(klass, method_name)
+  # profile([[klass, method_name], ...])
+  def self.profile(methods, name = nil)
+    methods = name ? [[klass, name]] : klass
+
+    methods.each do |klass, method|
+      if klass.respond_to?(method)
+        #puts "binding #{"#{klass.name}.#{method}"}"
+        ::Rack::MiniProfiler.profile_singleton_method(klass, method) { |a| name || "#{klass.name}.#{method}" }
+      elsif klass.method_defined?(method)
+        #puts "binding #{"#{klass.name}##{method}"}"
+        ::Rack::MiniProfiler.profile_method(klass, method) { |a| name || "#{klass.name}##{method}" }
+      else
+        puts "Can not bind: #{klass.name}.#{method}"
+      end
+    end
+  end
+
   def capture(name, options = {})
     base_url = options[:base_url] || "http://localhost:3000"
     # base_file = options[:base_file] || defined?(Rails) ? Rails.root.join("public") : "."
