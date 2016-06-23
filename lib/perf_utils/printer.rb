@@ -113,6 +113,20 @@ module PerfUtils
       print_line(0, nil, duration, nil, query_count, query_times, query_rows, "avg")
     end
 
+    def f_to_s(f, tgt = 1)
+      if f.kind_of?(Numeric)
+        parts = f.round(tgt).to_s.split('.')
+        parts[0].gsub!(/(\d)(?=(\d\d\d)+(?!\d))/, "\\1,")
+        parts.join('.')
+      else
+        (f || "")
+      end
+    end
+
+    def z_to_s(f, tgt = 1)
+      f.kind_of?(Numeric) && f.round(tgt) == 0.0 ? nil : f_to_s(f, tgt)
+    end
+
     private
 
     def print_node(root)
@@ -284,19 +298,6 @@ module PerfUtils
       nodes.blank? ? 0 : (nodes.map(&block).sum / nodes.length)
     end
 
-    def f_to_s(f, tgt = 1)
-      if f.kind_of?(Numeric)
-        parts = f.round(tgt).to_s.split('.')
-        parts[0].gsub!(/(\d)(?=(\d\d\d)+(?!\d))/, "\\1,")
-        parts.join('.')
-      else
-        (f || "")
-      end
-    end
-
-    def z_to_s(f, tgt = 1)
-      f.kind_of?(Numeric) && f.round(tgt) == 0.0 ? nil : f_to_s(f, tgt)
-    end
     # actual printing statements
 
     def fmt(spacer = ' ')
