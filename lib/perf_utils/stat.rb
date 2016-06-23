@@ -4,7 +4,7 @@ module PerfUtils
   require 'objspace' if COLLECT_MEMSIZE
   class Stat
     attr_accessor :name
-    attr_accessor :total_allocated_objects, :total_freed_objects, :old_objects #
+    attr_accessor :total_objects, :total_allocated_objects, :total_freed_objects, :old_objects
     attr_accessor :time, :memsize_of_all
     attr_accessor :gc_stat
 
@@ -18,6 +18,8 @@ module PerfUtils
       gc_stat = GC.stat
       @total_allocated_objects = gc_stat[:total_allocated_objects]
       @total_freed_objects     = gc_stat[:total_freed_objects]
+      # this seems duplicate. may want to shift to this from total_allocated_objects
+      @total_objects           = @total_allocated_objects + @total_freed_objects
       @old_objects             = gc_stat[:old_objects]
       @memsize_of_all          = ObjectSpace.memsize_of_all if COLLECT_MEMSIZE
 
@@ -26,10 +28,13 @@ module PerfUtils
 
     def live_objects ; total_allocated_objects - total_freed_objects ; end
     def young_objects ; live_objects - old_objects ; end
+    def freed_objects? ; total_freed_objects > 0 ; end
     def code_time ; time ; end
     def delta
       gc_stat = GC.stat
       @time                    = Time.now - @time
+      @total_objects           = gc_stat[:total_allocated_objects] + gc_stat[:total_freed_objects] - @total_objects
+      @total_freed_objects     = gc_stat[:total_freed_objects]     - @total_freed_objects
       @total_allocated_objects = gc_stat[:total_allocated_objects] - @total_allocated_objects
       @total_freed_objects     = gc_stat[:total_freed_objects]     - @total_freed_objects
       @old_objects             = gc_stat[:old_objects]             - @old_objects

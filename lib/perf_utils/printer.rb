@@ -55,7 +55,7 @@ module PerfUtils
       query_count, row_count = child_sql_counts(page.root)
 
       print_line(0, 0.0, page.duration_ms, 0, query_count, page.duration_ms_in_sql, row_count, page[:name],
-        stat && stat.memsize_of_all, stat && stat.total_allocated_objects)
+        stat && stat.memsize_of_all, stat && stat.total_objects, stat && stat.freed_objects?)
       collapse_nodes(page.root[:children], collapse) unless collapse.empty?
       print_node(page.root) if display_children
     end
@@ -101,6 +101,10 @@ module PerfUtils
           print_dashes
           print_averages(skip_first ? partitions[1..-1] : partitions)
         end
+      end
+
+      if stat && stat.total_freed_objects != 0
+        puts "* Memory usage does not reflect #{f_to_s(stat.total_freed_objects, 0)} freed objects. "
       end
     end
 
@@ -324,7 +328,7 @@ module PerfUtils
                    duration, child_duration,
                    sql_count, sql_duration, sql_row_count, 
                    phrase,
-                   memsize_of_all = nil, total_allocated_objects = nil)
+                   memsize_of_all = nil, total_allocated_objects = nil, disclaimer = false)
       offset = f_to_s(offset)
       duration = f_to_s(duration)
       child_duration = f_to_s(child_duration)
@@ -333,6 +337,7 @@ module PerfUtils
       sql_count = z_to_s(sql_count, 0)
       sql_row_count = z_to_s(sql_row_count, 0)
       memsize_of_all = z_to_s(memsize_of_all, 0)
+      memsize_of_all += "*" if memsize_of_all && memsize_of_all != "" && disclaimer
       total_allocated_objects = z_to_s(total_allocated_objects, 0)
 
       data = []
