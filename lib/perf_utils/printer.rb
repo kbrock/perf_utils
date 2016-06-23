@@ -288,6 +288,8 @@ module PerfUtils
     def summarize_sql_nodes(snodes)
       summary = snodes.first
       summary[:count] = snodes.size
+      ff = snodes.map { |s| s[:first_fetch_duration_milliseconds] }.compact
+      summary[:first_fetch_duration_milliseconds] = ff.sum if ff.size > 0
       summary[:duration_milliseconds] = snodes.map { |s| s[:duration_milliseconds] }.sum
       summary
     end
