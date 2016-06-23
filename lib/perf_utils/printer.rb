@@ -41,6 +41,11 @@ module PerfUtils
       @collapse = val.kind_of?(String) ? val.split(",") : val
     end
 
+    def aggressive_dedup=(val)
+      @display_sql = true if val == true
+      @aggressive_dedup = val
+    end
+
     def print_header
       print_line(0, "@", "ms", "ms-", "queries", "query (ms)", "rows", "comments", "bytes", "objects")
       # print_line(0, "@", "ms", "ms-", "# queries", "query time(ms)", "# rows", "comments")
