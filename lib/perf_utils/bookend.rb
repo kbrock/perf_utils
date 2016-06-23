@@ -44,7 +44,7 @@ class Bookend
   end
 
   def print(pages, stats = nil)
-    pages = pages.map { |id| storage.load(id) }
+    pages = Array.wrap(pages).map { |id| storage.load(id) }
     page_groups = pages.group_by { |page| page[:name] =~ /^(.*[^0-9])[0-9]+$/ ; $1 }.values
     printer.print_group(page_groups, stats)
   end
@@ -53,11 +53,6 @@ class Bookend
     stats = xs.map(&:last)
     x = xs.map(&:first) #process ids
     if true
-      # the gc ran - lets run again
-      if stats.first.total_freed_objects != 0
-        puts "OLD: #{stats.first.old_objects} / FREED: #{stats.first.total_freed_objects}"
-      end
-
       print(x, stats)
       puts
     else
