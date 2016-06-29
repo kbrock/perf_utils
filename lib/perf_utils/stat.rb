@@ -36,7 +36,6 @@ module PerfUtils
       @total_objects           = gc_stat[:total_allocated_objects] + gc_stat[:total_freed_objects] - @total_objects
       @total_freed_objects     = gc_stat[:total_freed_objects]     - @total_freed_objects
       @total_allocated_objects = gc_stat[:total_allocated_objects] - @total_allocated_objects
-      @total_freed_objects     = gc_stat[:total_freed_objects]     - @total_freed_objects
       @old_objects             = gc_stat[:old_objects]             - @old_objects
       @memsize_of_all          = ObjectSpace.memsize_of_all        - @memsize_of_all if COLLECT_MEMSIZE
 
