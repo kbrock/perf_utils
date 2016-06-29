@@ -26,19 +26,30 @@ class Bookend
   # profile(klass, method_name)
   # profile([[klass, method_name], ...])
   def self.profile(methods, name = nil)
-    methods = name ? [[klass, name]] : klass
-
-    methods.each do |klass, method|
-      if klass.respond_to?(method)
-        #puts "binding #{"#{klass.name}.#{method}"}"
-        ::Rack::MiniProfiler.profile_singleton_method(klass, method) { |a| name || "#{klass.name}.#{method}" }
-      elsif klass.method_defined?(method)
-        #puts "binding #{"#{klass.name}##{method}"}"
-        ::Rack::MiniProfiler.profile_method(klass, method) { |a| name || "#{klass.name}##{method}" }
-      else
-        puts "Can not bind: #{klass.name}.#{method}"
+    methods = [[methods, name]] if name
+    methods.each do |klass1, method|
+      possible_klasses = [klass1, (klass1.const_get(:ClassMethods) rescue nil)]
+      assigned = possible_klasses.compact.map do |klass|
+        if klass.respond_to?(method)
+          #puts "binding #{"#{klass.name}.#{method}"}"
+          ::Rack::MiniProfiler.profile_singleton_method(klass, method) { |a| name || "#{klass.name}.#{method}" }
+          true
+        elsif klass.method_defined?(method)
+          #puts "binding #{"#{klass.name}##{method}"}"
+          ::Rack::MiniProfiler.profile_method(klass, method) { |a| name || "#{klass.name}##{method}" }
+          true
+        end
       end
+      puts "Can not bind: #{klass.name}.#{method}" unless assigned.any?
     end
+  end
+
+  def self.profile_method(klass, method)
+    ::Rack::MiniProfiler.profile_method(klass, method) { |a| name || "#{klass.name}##{method}" }
+  end
+
+  def self.profile_klass(klass, method)
+    ::Rack::MiniProfiler.profile_singleton_method(klass, method) { |a| name || "#{klass.name}.#{method}" }
   end
 
   def capture(name, options = {})
