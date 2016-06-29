@@ -277,8 +277,9 @@ module PerfUtils
     def merge_children(parent, target = parent)
       parent[:children].each do |child|
         target[:sql_timings] += child[:sql_timings]
-        target[:sql_timings_duration_milliseconds] += child[:sql_timings_duration_milliseconds]
-        target[:row_count] = target[:row_count].to_i + child[:row_count].to_i
+        target[:duration_ms_in_sql] += child[:duration_ms_in_sql] if child[:duration_ms_in_sql]
+        target[:sql_timings_duration_milliseconds] += child[:sql_timings_duration_milliseconds] if child[:sql_timings_duration_milliseconds]
+        target[:row_count] = target[:row_count].to_i + child[:row_count].to_i if child[:row_count]
         merge_children(child, target)
       end
       parent[:children] = []
@@ -288,10 +289,15 @@ module PerfUtils
     def summarize_sql_nodes(snodes)
       summary = snodes.first
       summary[:count] = snodes.size
-      ff = snodes.map { |s| s[:first_fetch_duration_milliseconds] }.compact
-      summary[:first_fetch_duration_milliseconds] = ff.sum if ff.size > 0
-      summary[:duration_milliseconds] = snodes.map { |s| s[:duration_milliseconds] }.sum
+      null_or_summary(summary, snodes, :first_fetch_duration_milliseconds)
+      null_or_summary(summary, snodes, :row_count)
+      null_or_summary(summary, snodes, :duration_milliseconds)
       summary
+    end
+
+    def null_or_summary(summary, snodes, key)
+      values = snodes.map { |s| s[key] }.compact
+      summary[key] = values.sum if values.size > 0
     end
 
     def dedup_sql(snodes, aggressive = false)
