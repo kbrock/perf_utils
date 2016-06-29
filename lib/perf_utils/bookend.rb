@@ -52,6 +52,10 @@ class Bookend
     ::Rack::MiniProfiler.profile_singleton_method(klass, method) { |a| name || "#{klass.name}.#{method}" }
   end
 
+  def self.print(ids)
+    instance.print(Array.wrap(ids))
+  end
+
   def capture(name, options = {})
     base_url = options[:base_url] || "http://localhost:3000"
     # base_file = options[:base_file] || defined?(Rails) ? Rails.root.join("public") : "."
