@@ -1,6 +1,7 @@
 require 'objspace'
 require 'singleton'
 require 'json'
+require 'rack-mini-profiler'
 require 'perf_utils/rack_storage'
 require 'perf_utils/printer'
 
