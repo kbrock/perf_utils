@@ -103,7 +103,7 @@ module PerfUtils
     self
   end
 
-  def self.track(name, print_me = true)
+  def self.track(name = "no name", print_me = true)
     d = Stat.new(name).calc
     yield
     d.delta
