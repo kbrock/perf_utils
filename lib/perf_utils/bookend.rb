@@ -57,6 +57,14 @@ class Bookend
   end
 
   def capture(name, options = {})
+    # env = {
+    # 'PATH_INFO' => 'cli', # method name?
+    # 'QUERY_STRING'
+    # 'SCRIPT_NAME' => '',
+    # 'SERVER_NAME' => 'localhost',
+    # 'REQUEST_METHOD'
+    # 'SERVER_PORT' => '3000',
+    # }
     base_url = options[:base_url] || "http://localhost:3000"
     # base_file = options[:base_file] || defined?(Rails) ? Rails.root.join("public") : "."
     env = {'RACK_MINI_PROFILER_ORIGINAL_SCRIPT_NAME' => base_url}
@@ -120,6 +128,7 @@ class Bookend
   end
 end
 
+# run 3 times
 def thrice(name, count = 1, &block)
   bookend("#{name}-0", &block)
   GC.start
@@ -140,6 +149,7 @@ def bookend(name = "no name", count = 1, &block)
   xs.map(&:first) #process ids
 end
 
+# run with sandbox concept
 def sandy(name = "", count = 4, &block)
   gp = Bookend.instance
   old_skip = Bookend.config(:skip_first)
@@ -177,7 +187,3 @@ def sandprof(name = "no name", &block)
   end
 end
 
-if false
-
-Metric::Capture::perf_capture_timer
-end
